@@ -1,0 +1,17 @@
+# Development stage
+FROM maven:3.9.9-eclipse-temurin-21
+
+# Set working directory
+WORKDIR /app
+
+# Copy just the POM file first (for better caching)
+COPY pom.xml .
+
+# Download dependencies (they will be cached in the .m2 directory)
+RUN mvn dependency:go-offline -B
+
+# The actual source code will be mounted as a volume in docker-compose
+# This allows for live reloading during development
+
+# Start the application with Maven for better development experience
+CMD ["mvn", "spring-boot:run", "-Dspring-boot.run.profiles=dev"]
