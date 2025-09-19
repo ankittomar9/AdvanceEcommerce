@@ -4,7 +4,7 @@ services:
   product-service:
     build: 
       context: ./product-service
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     container_name: product-service
     ports:
       - "8000:8000"
@@ -16,6 +16,11 @@ services:
     environment:
       SPRING_DATA_MONGODB_URI: mongodb://root:password@mongodb:27017/product-service?authSource=admin&retryWrites=true&w=majority
       SPRING_PROFILES_ACTIVE: dev
+      SPRING_DEVTOOLS_RESTART_ENABLED: "true"
+    volumes:
+      - ./product-service:/app
+      - ~/.m2:/root/.m2  # Maven cache to speed up builds
+    working_dir: /app
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/actuator/health"]
