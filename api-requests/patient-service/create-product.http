@@ -1,0 +1,13 @@
+### Post request to creates a new product in product service
+POST http://localhost:8000/api/product
+Content-Type: application/json
+
+{
+  "name": "Aman Doe",
+  "description": "Iphone 16",
+  "price": 10000
+
+}
+
+
+###
