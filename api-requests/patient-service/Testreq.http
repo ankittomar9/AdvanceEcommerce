@@ -1,0 +1,18 @@
+# curl -X POST http://localhost:8000/api/products
+#  -H "Content-Type: application/json"
+#  -d '{"name": "Persistent Product", "price": 29.99, "description": "This should persist after container restart"}'
+POST http://localhost:8000/api/product
+Content-Type: application/json
+
+
+{
+  "name": "Persistent Product",
+  "description": "This should persist after container restart",
+  "price": 10000
+
+}
+###
+
+
+
+
