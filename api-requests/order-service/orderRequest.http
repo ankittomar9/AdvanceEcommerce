@@ -1,0 +1,11 @@
+### POST request to order service
+POST http://localhost:8081/api/order
+Content-Type: application/json
+
+{
+  "skuCode": "iphone 18",
+  "price" : 1001,
+  "quantity": 2
+}
+
+###
