@@ -1,0 +1,28 @@
+### Get Access Token
+POST http://localhost:8181/realms/spring-microservices-security-realm/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
+
+client_id=spring-client-credentials-id
+    &client_secret=bTIqYw4XO5WEO5k546Ql8Fl1ijxMmyEo
+    &grant_type=client_credentials
+
+> {%
+    client.test("Token received", function() {
+        client.assert(response.body.access_token, "No access token in response");
+        client.global.set("access_token", response.body.access_token);
+    });
+%}
+
+### Check inventory through API Gateway
+GET http://localhost:9000/api/inventory?skuCode=iphone_15&quantity=100
+Authorization: Bearer {{access_token}}
+Accept: application/json
+
+> {%
+    client.test("Response status is 200", function() {
+        client.assert(response.status === 200, "Expected status 200, got " + response.status);
+    });
+    client.test("Response body contains expected data", function() {
+        client.assert(response.body === true, "Expected response body to be true, got " + JSON.stringify(response.body));
+    });
+%}
