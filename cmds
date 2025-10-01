@@ -1,0 +1,1 @@
+docker-compose up -d --build api-gateway keycloak keycloak-mysql
