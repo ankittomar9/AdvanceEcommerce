@@ -1,0 +1,21 @@
+### Get Access Token
+POST http://localhost:8181/realms/spring-microservices-security-realm/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
+
+client_id=spring-client-credentials-id
+    &client_secret=bTIqYw4XO5WEO5k546Ql8Fl1ijxMmyEo
+    &grant_type=client_credentials
+
+> {%
+    client.test("Token received", function() {
+        client.assert(response.body.access_token, "No access token in response");
+        client.global.set("access_token", response.body.access_token);
+        client.log("Access token: " + response.body.access_token);
+    });
+%}
+
+### Use the access token to access protected resource
+
+GET http://localhost:9000/api/product
+Authorization: Bearer {{access_token}}
+Content-Type: application/json
