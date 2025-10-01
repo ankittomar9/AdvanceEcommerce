@@ -1,9 +1,14 @@
 version: '4'
 
+networks:
+  ecommerce-network:
+    name: ecommerce-network
+    driver: bridge
+
 services:
   mysql:
     image: mysql:8.3.0
-    container_name: mysql
+    container_name: order-serviceDB
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: mysql
@@ -15,6 +20,8 @@ services:
     volumes:
       - E:/docker-volumes/order-service/mysql:/var/lib/mysql
       - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - ecommerce-network
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"]
       timeout: 30s
@@ -47,3 +54,6 @@ services:
       SPRING_JPA_HIBERNATE_DDL-AUTO: update
       SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.MySQL8Dialect
       SPRING_FLYWAY_ENABLED: "true"
+      INVENTORY_SERVICE_URL: http://inventory-service:8082
+    networks:
+      - ecommerce-network
