@@ -1,6 +1,8 @@
 # curl http://localhost:8000/api/products
 ###
 GET http://localhost:8000/api/product
+##Through API gateway
+
 
 ###
 
