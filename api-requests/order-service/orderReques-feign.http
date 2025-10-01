@@ -1,0 +1,11 @@
+### POST request to order service using feign client
+POST http://localhost:8081/api/order
+Content-Type: application/json
+
+{
+  "skuCode": "iphone_15",
+  "price" : 1000,
+  "quantity": 1
+}
+
+###
