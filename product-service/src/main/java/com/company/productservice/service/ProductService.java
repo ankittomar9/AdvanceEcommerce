@@ -1,5 +1,6 @@
 package com.company.productservice.service;
 
+
 import com.company.productservice.dto.ProductRequest;
 import com.company.productservice.dto.ProductResponse;
 import com.company.productservice.model.Product;
@@ -20,6 +21,7 @@ public class ProductService {
         Product product = Product.builder()
                 .name(productRequest.name())
                 .description(productRequest.description())
+                .skuCode(productRequest.skuCode())
                 .price(productRequest.price())
                 .build();
         productRepository.save(product);
