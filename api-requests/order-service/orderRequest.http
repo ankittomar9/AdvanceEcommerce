@@ -1,4 +1,4 @@
-### POST request to order service
+### POST request to order service  gives product not in stock
 POST http://localhost:8081/api/order
 Content-Type: application/json
 
