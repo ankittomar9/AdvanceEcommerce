@@ -1,0 +1,27 @@
+### Send multiple requests to the inventory service to trigger the circuit breaker
+### Make sure the inventory-service is NOT running before executing these requests.
+
+### Request 1 (will fail)
+GET http://localhost:9000/api/inventory/1
+Authorization: Bearer {{access_token}}
+
+### Request 2 (will fail)
+GET http://localhost:9000/api/inventory/1
+Authorization: Bearer {{access_token}}
+
+### Request 3 (will fail, this should trip the circuit breaker)
+GET http://localhost:9000/api/inventory/1
+Authorization: Bearer {{access_token}}
+
+### Request 4 (should receive fallback response)
+GET http://localhost:9000/api/inventory/1
+Authorization: Bearer {{access_token}}
+
+###
+# Wait 5 seconds for the circuit to enter half-open state
+# Then, you can test for recovery.
+# Start the inventory-service and run the request below. It should succeed.
+
+### Test recovery
+GET http://localhost:9000/api/inventory/1
+Authorization: Bearer {{access_token}}
