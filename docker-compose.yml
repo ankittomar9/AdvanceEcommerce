@@ -1,8 +1,151 @@
 version: '3.8'
 
+networks:
+  ecommerce-network:
+    driver: bridge
+    name: ecommerce-network
+    attachable: true
+
 services:
+  # API Gateway
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway-ecommerce
+    restart: always
+    ports:
+      - "9000:9000"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_CLOUD_GATEWAY_ROUTES[0].ID: product-service
+      SPRING_CLOUD_GATEWAY_ROUTES[0].URI: http://product-service:8000
+      SPRING_CLOUD_GATEWAY_ROUTES[0].PREDICATES[0]: Path=/api/product/**
+      SPRING_CLOUD_GATEWAY_ROUTES[1].ID: order-service
+      SPRING_CLOUD_GATEWAY_ROUTES[1].URI: http://order-service:8081
+      SPRING_CLOUD_GATEWAY_ROUTES[1].PREDICATES[0]: Path=/api/order/**
+      SPRING_CLOUD_GATEWAY_ROUTES[2].ID: inventory-service
+      SPRING_CLOUD_GATEWAY_ROUTES[2].URI: http://inventory-service:8082
+      SPRING_CLOUD_GATEWAY_ROUTES[2].PREDICATES[0]: Path=/api/inventory/**
+    depends_on:
+      - product-service
+      - order-service
+      - inventory-service
+    networks:
+      - ecommerce-network
+
+  # Order Service MySQL
+  order-mysql:
+    image: mysql:8.3.0
+    container_name: order-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: mysql
+      MYSQL_DATABASE: order_service
+      MYSQL_USER: orderuser
+      MYSQL_PASSWORD: orderpassword
+    ports:
+      - "3306:3306"
+    volumes:
+      - E:/docker-volumes/order-service/mysql:/var/lib/mysql
+      - ./order-service/docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - ecommerce-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"]
+      timeout: 30s
+      retries: 10
+      start_period: 30s
+    command: [
+      '--default-authentication-plugin=mysql_native_password',
+      '--character-set-server=utf8mb4',
+      '--collation-server=utf8mb4_unicode_ci',
+      '--max_connections=200',
+      '--wait_timeout=300',
+      '--interactive_timeout=300'
+    ]
+
+  # Order Service
+  order-service:
+    build:
+      context: ./order-service
+      dockerfile: Dockerfile
+    container_name: order-service
+    restart: always
+    depends_on:
+      order-mysql:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://order-mysql:3306/order_service?useSSL=false&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
+      SPRING_DATASOURCE_USERNAME: orderuser
+      SPRING_DATASOURCE_PASSWORD: orderpassword
+      SPRING_JPA_HIBERNATE_DDL-AUTO: update
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.MySQL8Dialect
+      SPRING_FLYWAY_ENABLED: "true"
+      INVENTORY_SERVICE_URL: http://inventory-service:8082
+      SPRING_KAFKA_BOOTSTRAP-SERVERS: broker:29092
+    networks:
+      - ecommerce-network
+
+  # Inventory Service MySQL
+  inventory-mysql:
+    image: mysql:8.3.0
+    container_name: inventory-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: mysql
+      MYSQL_DATABASE: inventory_service
+      MYSQL_USER: inventoryuser
+      MYSQL_PASSWORD: inventorypassword
+    ports:
+      - "3307:3306"
+    volumes:
+      - E:/docker-volumes/inventory-service/mysql:/var/lib/mysql
+      - ./inventory-service/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - ecommerce-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"]
+      timeout: 30s
+      retries: 10
+      start_period: 30s
+    command: [
+      '--default-authentication-plugin=mysql_native_password',
+      '--character-set-server=utf8mb4',
+      '--collation-server=utf8mb4_unicode_ci',
+      '--max_connections=200',
+      '--wait_timeout=300',
+      '--interactive_timeout=300'
+    ]
+
+  # Inventory Service
+  inventory-service:
+    build:
+      context: ./inventory-service
+      dockerfile: Dockerfile
+    container_name: inventory-service
+    restart: always
+    depends_on:
+      inventory-mysql:
+        condition: service_healthy
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://inventory-mysql:3306/inventory_service?useSSL=false&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
+      SPRING_DATASOURCE_USERNAME: inventoryuser
+      SPRING_DATASOURCE_PASSWORD: inventorypassword
+      SPRING_JPA_HIBERNATE_DDL-AUTO: update
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.MySQL8Dialect
+      SPRING_FLYWAY_ENABLED: "true"
+      SPRING_KAFKA_BOOTSTRAP-SERVERS: broker:29092
+    networks:
+      - ecommerce-network
+
+  # Product Service
   product-service:
-    build: 
+    build:
       context: ./product-service
       dockerfile: Dockerfile.dev
     container_name: product-service
@@ -17,9 +160,10 @@ services:
       SPRING_DATA_MONGODB_URI: mongodb://root:password@mongodb:27017/product-service?authSource=admin&retryWrites=true&w=majority
       SPRING_PROFILES_ACTIVE: dev
       SPRING_DEVTOOLS_RESTART_ENABLED: "true"
+      SPRING_KAFKA_BOOTSTRAP-SERVERS: broker:29092
     volumes:
       - ./product-service:/app
-      - ~/.m2:/root/.m2  # Maven cache to speed up builds
+      - ~/.m2:/root/.m2
     working_dir: /app
     restart: unless-stopped
     healthcheck:
@@ -29,6 +173,7 @@ services:
       retries: 3
       start_period: 40s
 
+  # MongoDB
   mongodb:
     image: mongo:7.0.5
     container_name: mongodb
@@ -51,16 +196,116 @@ services:
       start_period: 30s
     restart: unless-stopped
 
-networks:
-  ecommerce-network:
-    driver: bridge
-    name: ecommerce-network
-    attachable: true
+  # Keycloak MySQL
+  keycloak-mysql:
+    container_name: keycloak-mysql
+    image: mysql:8
+    volumes:
+      - ./volume-data/mysql_keycloak_data:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: keycloak
+      MYSQL_USER: keycloak
+      MYSQL_PASSWORD: password
+    networks:
+      - ecommerce-network
+
+  keycloak:
+    container_name: keycloak
+    image: quay.io/keycloak/keycloak:24.0.1
+    command:
+      - start-dev
+      - --import-realm
+      - --http-port=8080
+      - --http-relative-path=/
+      - --hostname-strict=false
+    environment:
+      DB_VENDOR: MYSQL
+      DB_ADDR: keycloak-mysql
+      DB_DATABASE: keycloak
+      DB_USER: keycloak
+      DB_PASSWORD: password
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HOSTNAME: localhost
+      KC_HTTP_ENABLED: "true"
+      KC_HTTP_PORT: 8080
+    ports:
+      - "8181:8080"
+    volumes:
+      - ./docker/keycloak/realms/:/opt/keycloak/data/import/
+    depends_on:
+      - keycloak-mysql
+    networks:
+      - ecommerce-network
+
+  # Kafka Services
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    hostname: zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - ecommerce-network
+
+  broker:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: broker
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    networks:
+      - ecommerce-network
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.5.0
+    hostname: schema-registry
+    container_name: schema-registry
+    depends_on:
+      - broker
+    ports:
+      - "8085:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'broker:29092'
+      SCHEMA_REGISTRY_LISTENERS: http://schema-registry:8081
+    networks:
+      - ecommerce-network
+
+  kafka-ui:
+    container_name: kafka-ui
+    image: provectuslabs/kafka-ui:latest
+    ports:
+      - "8086:8080"
+    depends_on:
+      - broker
+      - schema-registry
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: broker:29092
+  #    KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
+      DYNAMIC_CONFIG_ENABLED: 'true'
+    networks:
+      - ecommerce-network
 
 volumes:
   mongodb_data:
     driver: local
     driver_opts:
       type: none
-      o: bind
       device: "E:\\docker-data\\mongodb"
+  kafka_data:
+  zookeeper_data:
