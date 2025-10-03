@@ -7,6 +7,12 @@ networks:
     attachable: true
 
 services:
+  # Obseraility
+  loki:
+    image: grafana/loki:main
+    command: [ '-config.file=/etc/loki/local-config.yaml' ]
+    ports:
+      - '3100:3100'
   # API Gateway
   api-gateway:
     build:
